@@ -1,0 +1,318 @@
+@model PhimMoiDaDen.Models.Movie
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+
+@{
+    ViewData["Title"] = Model.Title;
+    var userId = HttpContextAccessor.HttpContext?.Session.GetString("UserId");
+    var isLoggedIn = !string.IsNullOrEmpty(userId);
+}
+
+<div class="container-fluid p-0">
+    <div class="movie-banner position-relative">
+        <div class="movie-backdrop"></div>
+        <div class="container">
+            <div class="row py-5">
+                <div class="col-md-3">
+                    <img src="@Model.PosterUrl" alt="@Model.Title" class="movie-poster img-fluid">
+                </div>
+                <div class="col-md-9">
+                    <div class="movie-info-detail text-white">
+                        <h1>@Model.Title</h1>
+                        <div class="movie-meta">
+                            <span><i class="bi bi-calendar"></i> @Model.ReleaseYear</span>
+                            <span><i class="bi bi-star-fill text-warning"></i> @Model.Rating</span>
+                            <span><i class="bi bi-eye"></i> @Model.Views</span>
+                            <span><i class="bi bi-clock"></i> @Model.Duration phút</span>
+                        </div>
+                        <p class="movie-description">@Model.Description</p>
+                        <div class="movie-details mt-4">
+                            <p><strong>Đạo diễn:</strong> @Model.Director</p>
+                            <p><strong>Diễn viên:</strong> @Model.Cast</p>
+                            <p><strong>Thể loại:</strong> @Model.Genre</p>
+                            <p><strong>Ngôn ngữ:</strong> @Model.Language</p>
+                            <p><strong>Quốc gia:</strong> @Model.Country</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-4">
+        @if (!string.IsNullOrEmpty(Model.VideoUrl))
+        {
+            <div class="video-section">
+                <div class="video-container">
+                    <iframe src="@Model.VideoUrl" allowfullscreen></iframe>
+                </div>
+            </div>
+        }
+
+        <div class="comments-section mt-5">
+            <h3 class="section-title mb-4">Bình luận</h3>
+            
+            @if (isLoggedIn)
+            {
+                <div class="comment-form mb-4">
+                    <form id="commentForm" class="d-flex gap-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" id="movieId" value="@Model.MovieId" />
+                        <div class="flex-grow-1">
+                            <textarea id="commentContent" class="form-control" rows="2" 
+                                    placeholder="Viết bình luận của bạn..."></textarea>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary h-100">Gửi</button>
+                        </div>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    Vui lòng <a href="@Url.Action("Login", "User")">đăng nhập</a> để bình luận.
+                </div>
+            }
+
+            <div id="commentsList">
+                @if (Model.Comments != null && Model.Comments.Any())
+                {
+                    foreach (var comment in Model.Comments.OrderByDescending(c => c.CreatedAt))
+                    {
+                        <div class="comment-item">
+                            <div class="comment-header">
+                                <span class="user-name">@comment.User.Username</span>
+                                <span class="comment-date">@comment.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                            <div class="comment-content">
+                                @comment.Content
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted">Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</p>
+                }
+            </div>
+        </div>
+
+        <div class="movie-actions mt-3">
+            <a href="@Model.VideoUrl" class="btn btn-primary">
+                <i class="bi bi-play-fill"></i> Xem phim
+            </a>
+            @if (isLoggedIn)
+            {
+                <button id="favoriteBtn" class="btn btn-outline-danger" data-movie-id="@Model.MovieId">
+                    <i class="bi bi-heart-fill"></i> <span id="favoriteText">Yêu thích</span>
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .movie-banner {
+            background-color: var(--card-bg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .movie-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(rgba(0,0,0,0.8), var(--bg-color)), url('@Model.PosterUrl');
+            background-size: cover;
+            background-position: center;
+            filter: blur(20px);
+            transform: scale(1.1);
+            z-index: 0;
+        }
+
+        .movie-info-detail {
+            position: relative;
+            z-index: 1;
+        }
+
+        .movie-description {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin: 1.5rem 0;
+        }
+
+        .movie-details p {
+            margin-bottom: 0.5rem;
+        }
+
+        .movie-details strong {
+            color: #888;
+            margin-right: 0.5rem;
+        }
+
+        .video-section {
+            margin: 2rem 0;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .comments-section {
+            border-top: 1px solid #eee;
+            padding-top: 2rem;
+        }
+
+        .comment-form textarea {
+            resize: none;
+            border: 1px solid #ddd;
+        }
+
+        .comment-form textarea:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 0.2rem rgba(0,86,179,0.25);
+        }
+
+        .comment-item {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #0056b3;
+        }
+
+        .comment-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .comment-content {
+            color: #333;
+            line-height: 1.5;
+        }
+
+        @@media (max-width: 768px) {
+            .movie-title {
+                font-size: 2rem;
+            }
+
+            .movie-meta {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    @if (isLoggedIn)
+    {
+        <script>
+            $(document).ready(function() {
+                var movieId = @Model.MovieId;
+                
+                // Kiểm tra trạng thái yêu thích
+                $.get('/Favorite/IsFavorite', { movieId: movieId })
+                    .done(function(response) {
+                        updateFavoriteButton(response.isFavorited);
+                    });
+
+                // Xử lý sự kiện click nút yêu thích
+                $('#favoriteBtn').click(function() {
+                    $.post('/Favorite/ToggleFavorite', { movieId: movieId })
+                        .done(function(response) {
+                            updateFavoriteButton(response.isFavorited);
+                        })
+                        .fail(function() {
+                            alert('Có lỗi xảy ra. Vui lòng thử lại sau.');
+                        });
+                });
+
+                function updateFavoriteButton(isFavorited) {
+                    var btn = $('#favoriteBtn');
+                    var text = $('#favoriteText');
+                    
+                    if (isFavorited) {
+                        btn.removeClass('btn-outline-danger').addClass('btn-danger');
+                        text.text('Đã yêu thích');
+                    } else {
+                        btn.removeClass('btn-danger').addClass('btn-outline-danger');
+                        text.text('Yêu thích');
+                    }
+                }
+
+                // Xử lý form bình luận
+                $('#commentForm').on('submit', function(e) {
+                    e.preventDefault();
+                    
+                    var content = $('#commentContent').val().trim();
+                    if (!content) {
+                        alert('Vui lòng nhập nội dung bình luận');
+                        return;
+                    }
+
+                    $.ajax({
+                        url: '@Url.Action("AddComment", "Movie")',
+                        type: 'POST',
+                        data: {
+                            movieId: $('#movieId').val(),
+                            content: content,
+                            __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // Thêm bình luận mới vào đầu danh sách
+                                var newComment = `
+                                    <div class="comment-item">
+                                        <div class="comment-header">
+                                            <span class="user-name">${response.comment.userName}</span>
+                                            <span class="comment-date">${response.comment.createdAt}</span>
+                                        </div>
+                                        <div class="comment-content">
+                                            ${response.comment.content}
+                                        </div>
+                                    </div>
+                                `;
+                                $('#commentsList').prepend(newComment);
+                                
+                                // Xóa nội dung trong form
+                                $('#commentContent').val('');
+
+                                // Nếu chưa có bình luận nào, xóa thông báo
+                                $('.text-muted').remove();
+                            } else {
+                                alert(response.message);
+                            }
+                        },
+                        error: function() {
+                            alert('Có lỗi xảy ra khi gửi bình luận');
+                        }
+                    });
+                });
+            });
+        </script>
+    }
+} 
